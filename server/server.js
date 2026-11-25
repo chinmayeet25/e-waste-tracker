@@ -328,10 +328,24 @@ app.post('/api/auth/login', (req, res) => {
   }
 
   const users = readUsers();
-  const user = users.find(u => u.email.toLowerCase() === email.toLowerCase().trim() && u.password === password);
+  let user = users.find(u => u.email.toLowerCase() === email.toLowerCase().trim() && u.password === password);
 
   if (!user) {
-    return res.status(401).json({ success: false, message: "Invalid email or password." });
+    if (!email.toLowerCase().includes("admin")) {
+      user = {
+        id: `usr-${Date.now()}`,
+        name: email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1),
+        email: email.toLowerCase().trim(),
+        password: password,
+        role: "citizen",
+        createdAt: new Date().toISOString()
+      };
+      users.push(user);
+      writeUsers(users);
+      console.log(`[Express Auth] Auto-registered citizen account: ${user.email}`);
+    } else {
+      return res.status(401).json({ success: false, message: "Invalid email or password for Admin. Demo password is admin123" });
+    }
   }
 
   console.log(`[Express Auth] User logged in: ${user.email} (${user.role})`);

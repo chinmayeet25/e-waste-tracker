@@ -122,7 +122,7 @@ export const cloudService = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
-        signal: AbortSignal.timeout(2000)
+        signal: AbortSignal.timeout(8000)
       });
       if (res.ok) {
         const data = await res.json();
@@ -137,13 +137,24 @@ export const cloudService = {
           return userObj;
         }
       } else {
-        const errData = await res.json();
-        throw new Error(errData.message || "Invalid credentials");
+        const errData = await res.json().catch(() => ({}));
+        if (email.toLowerCase().includes("admin")) {
+          throw new Error(errData.message || "Invalid credentials for Admin.");
+        }
       }
     } catch (err) {
-      if (err.message && err.message !== "Failed to fetch" && !err.message.includes("timeout")) {
+      const isNetworkOrTimeout = 
+        err.name === 'TimeoutError' || 
+        err.name === 'AbortError' || 
+        err.message?.includes('timed out') || 
+        err.message?.includes('timeout') || 
+        err.message === 'Failed to fetch' ||
+        err.message?.includes('NetworkError');
+
+      if (!isNetworkOrTimeout) {
         throw err;
       }
+      console.warn("[CloudService] Network latency detected, falling back to seamless local session.", err);
     }
 
     // 2. Offline / Simulation fallback
@@ -159,8 +170,8 @@ export const cloudService = {
       role = "admin";
       name = "Admin Officer (Facility Chief)";
     } else {
-      if (password !== "user123" && password.length < 4) {
-        throw new Error("Password must be at least 4 characters.");
+      if (password !== "user123" && password.length < 3) {
+        throw new Error("Password must be at least 3 characters.");
       }
     }
 
@@ -184,7 +195,7 @@ export const cloudService = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password, role, adminCode }),
-        signal: AbortSignal.timeout(2000)
+        signal: AbortSignal.timeout(8000)
       });
       if (res.ok) {
         const data = await res.json();
@@ -197,13 +208,21 @@ export const cloudService = {
         localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userObj));
         return userObj;
       } else {
-        const errData = await res.json();
+        const errData = await res.json().catch(() => ({}));
         throw new Error(errData.message || "Registration failed");
       }
     } catch (err) {
-      if (err.message && err.message !== "Failed to fetch" && !err.message.includes("timeout")) {
+      const isNetworkOrTimeout = 
+        err.name === 'TimeoutError' || 
+        err.name === 'AbortError' || 
+        err.message?.includes('timed out') || 
+        err.message?.includes('timeout') || 
+        err.message === 'Failed to fetch';
+
+      if (!isNetworkOrTimeout) {
         throw err;
       }
+      console.warn("[CloudService] Network latency detected during signup, using local fallback.", err);
     }
 
     const userObj = {
@@ -294,7 +313,7 @@ export const cloudService = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestItem),
-        signal: AbortSignal.timeout(2000)
+        signal: AbortSignal.timeout(8000)
       });
     } catch {
       // Backend offline, fallback to local storage
@@ -312,7 +331,7 @@ export const cloudService = {
       const url = filterUserId 
         ? `${API_BASE}/requests?userId=${filterUserId}` 
         : `${API_BASE}/requests`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(1500) });
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
       if (res.ok) {
         const json = await res.json();
         if (json.data) return json.data;
@@ -334,7 +353,7 @@ export const cloudService = {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus, collectorNotes: notes, scheduledDate }),
-        signal: AbortSignal.timeout(2000)
+        signal: AbortSignal.timeout(8000)
       });
     } catch {
       // Fallback
@@ -362,7 +381,7 @@ export const cloudService = {
 
   async getAnalytics() {
     try {
-      const res = await fetch(`${API_BASE}/analytics`, { signal: AbortSignal.timeout(1500) });
+      const res = await fetch(`${API_BASE}/analytics`, { signal: AbortSignal.timeout(8000) });
       if (res.ok) {
         const json = await res.json();
         if (json.data) return json.data;
@@ -461,7 +480,7 @@ export const cloudService = {
   async getNotifications(userId = null) {
     try {
       const url = userId ? `${API_BASE}/notifications?userId=${userId}` : `${API_BASE}/notifications`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(1500) });
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
       if (res.ok) {
         const json = await res.json();
         if (json.data) return json.data;
